@@ -47,10 +47,6 @@
   "Convert a 160-bit hash to a 20-byte digest list."
   (loop for i from 152 downto 0 by 8 collect (logand (ash hh (- i)) #xff)))
 
-(defun string-to-byte-vector (s)
-  "Convert a string into an unsigned-byte vector."
-  (map '(vector (unsigned-byte 8)) #'char-code s))
-
 (defun hash-vector (seq)
   "Convert x to an unsigned-byte vector."
   (if (stringp seq) (encode-lisp-string seq :utf-8) seq))
