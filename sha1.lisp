@@ -1,7 +1,6 @@
-;;;; SHA1 Digest and HMAC for LispWorks
+;;;; SHA1 Digest and HMAC for Common Lisp
 ;;;;
-;;;; Copyright (c) 2015 by Jeffrey Massung
-;;;; All rights reserved.
+;;;; Copyright (c) Jeffrey Massung
 ;;;;
 ;;;; This file is provided to you under the Apache License,
 ;;;; Version 2.0 (the "License"); you may not use this file
@@ -19,7 +18,7 @@
 ;;;;
 
 (defpackage :sha1
-  (:use :cl :external-format :base64)
+  (:use :cl :ccl :base64)
   (:export
    #:sha1-digest
    #:sha1-hex
@@ -41,7 +40,8 @@
 
 (defun rotate-word (w &optional (bits 1))
   "Rotate a 32-bit word left by bits."
-  (logior (logand (ash w (- bits 32)) (1- (ash 1 bits))) (logand (ash w bits) #xffffffff)))
+  (logior (logand (ash w (- bits 32)) (1- (ash 1 bits)))
+          (logand (ash w bits) #xffffffff)))
 
 (defun hash-digest (hh)
   "Convert a 160-bit hash to a 20-byte digest list."
@@ -49,7 +49,9 @@
 
 (defun hash-vector (seq)
   "Convert x to an unsigned-byte vector."
-  (if (stringp seq) (encode-lisp-string seq :utf-8) seq))
+  (if (not (stringp seq))
+      seq
+    (map '(vector (unsigned-byte 8)) #'char-code seq)))
 
 (defun digest (seq)
   "Create a SHA-1 digest from an adjustable vector containing the message."
@@ -58,17 +60,17 @@
          (h2 #x98badcfe)
          (h3 #x10325476)
          (h4 #xc3d2e1f0)
-         
+
          ;; convert the sequence into an adjustable vector
          (v (make-array (length seq)
                         :element-type '(unsigned-byte 8)
                         :initial-contents seq
                         :adjustable t
                         :fill-pointer t))
-             
+
          ;; message length in bits
          (m1 (ash (length v) 3))
-         
+
          ;; chunked words
          (w (make-array 80 :initial-element 0)))
 
@@ -76,52 +78,63 @@
     (vector-push-extend #x80 v)
 
     ;; make the message congruent to 448 bits (mod 512) in length
-    (loop until (= (rem (length v) 64) 56) do (vector-push-extend #x00 v))
+    (do ()
+        ((= (rem (length v) 64) 56))
+      (vector-push-extend #x00 v))
 
-    ;; append the message length as a 64-bit, big-endian value to the message
-    (loop for i from 56 downto 0 by 8 do (vector-push-extend (logand (ash m1 (- i)) #xff) v))
+    ;; append message length as a 64-bit, big-endian value to the message
+    (do ((i 56 (- i 8)))
+        ((minusp i))
+      (vector-push-extend (logand (ash m1 (- i)) #xff) v))
 
     ;; break the message up into 512-bit chunks
-    (loop for chunk below (length v) by 64
+    (do ((chunk 0 (+ chunk 64)))
+        ((>= chunk (length v))
 
-          ;; break each chunk into 32-bit, big-endian words
-          do (dotimes (i 80)
-               (setf (aref w i)
-                     (if (< i 16)
-                         (word v chunk (* i 4))
-                       (rotate-word (logxor (aref w (- i 3))
-                                            (aref w (- i 8))
-                                            (aref w (- i 14))
-                                            (aref w (- i 16)))))))
-          
-          ;; process each chunk
-          do (let ((a h0)
-                   (b h1)
-                   (c h2)
-                   (d h3)
-                   (e h4))
-               (dotimes (i 80)
-                 (multiple-value-bind (f k)
-                     (cond ((<= 0 i 19)
-                            (values (logxor d (logand b (logxor c d))) #x5a827999))
-                           ((<= 20 i 39)
-                            (values (logxor b c d) #x6ed9eba1))
-                           ((<= 40 i 59)
-                            (values (logxor (logand b c) (logand b d) (logand c d)) #x8f1bbcdc))
-                           ((<= 60 i 79)
-                            (values (logxor b c d) #xca62c1d6)))
-                   (let ((x (logand (+ (rotate-word a 5) f e k (aref w i)) #xffffffff)))
-                     (setf e d d c c (rotate-word b 30) b a a x))))
+         ;; produce the final digest
+         (hash-digest (logior (ash h0 128)
+                              (ash h1 96)
+                              (ash h2 64)
+                              (ash h3 32)
+                              (ash h4 0))))
 
-               ;; add this chunk to the hash result
-               (setf h0 (logand (+ h0 a) #xffffffff))
-               (setf h1 (logand (+ h1 b) #xffffffff))
-               (setf h2 (logand (+ h2 c) #xffffffff))
-               (setf h3 (logand (+ h3 d) #xffffffff))
-               (setf h4 (logand (+ h4 e) #xffffffff)))
+      ;; break each chunk into 32-bit, big-endian words
+      (dotimes (i 80)
+        (setf (aref w i)
+              (if (< i 16)
+                  (word v chunk (* i 4))
+                (rotate-word (logxor (aref w (- i 3))
+                                     (aref w (- i 8))
+                                     (aref w (- i 14))
+                                     (aref w (- i 16)))))))
 
-          ;; produce the final digest
-          finally (return (hash-digest (logior (ash h0 128) (ash h1 96) (ash h2 64) (ash h3 32) h4))))))
+      ;; process each chunk
+      (let ((a h0)
+            (b h1)
+            (c h2)
+            (d h3)
+            (e h4))
+        (dotimes (i 80)
+          (multiple-value-bind (k f)
+              (cond ((<= 0 i 19)
+                     (values #x5a827999 (logxor d (logand b (logxor c d)))))
+                    ((<= 20 i 39)
+                     (values #x6ed9eba1 (logxor b c d)))
+                    ((<= 40 i 59)
+                     (values #x8f1bbcdc (logxor (logand b c)
+                                                (logand b d)
+                                                (logand c d))))
+                    ((<= 60 i 79)
+                     (values #xca62c1d6 (logxor b c d))))
+            (let ((x (logand (+ (rotate-word a 5) f e k (aref w i)) #xffffffff)))
+              (setf e d d c c (rotate-word b 30) b a a x))))
+
+        ;; add this chunk to the hash result
+        (setf h0 (logand (+ h0 a) #xffffffff))
+        (setf h1 (logand (+ h1 b) #xffffffff))
+        (setf h2 (logand (+ h2 c) #xffffffff))
+        (setf h3 (logand (+ h3 d) #xffffffff))
+        (setf h4 (logand (+ h4 e) #xffffffff))))))
 
 (defun sha1-digest (message)
   "Return the SHA1 digest for a byte sequence."
