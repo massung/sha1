@@ -18,7 +18,7 @@
 ;;;;
 
 (defpackage :sha1
-  (:use :cl :ccl :base64)
+  (:use :cl :base64)
   (:export
    #:sha1-digest
    #:sha1-hex
@@ -31,6 +31,8 @@
 
 (in-package :sha1)
 
+;;; ----------------------------------------------------
+
 (defun word (v chunk byte)
   "Read a 32-bit, big-endian word from a message chunk."
   (logior (ash (aref v (+ chunk byte 0)) 24)
@@ -38,20 +40,28 @@
           (ash (aref v (+ chunk byte 2)) 8)
           (ash (aref v (+ chunk byte 3)) 0)))
 
+;;; ----------------------------------------------------
+
 (defun rotate-word (w &optional (bits 1))
   "Rotate a 32-bit word left by bits."
   (logior (logand (ash w (- bits 32)) (1- (ash 1 bits)))
           (logand (ash w bits) #xffffffff)))
 
+;;; ----------------------------------------------------
+
 (defun hash-digest (hh)
   "Convert a 160-bit hash to a 20-byte digest list."
   (loop for i from 152 downto 0 by 8 collect (logand (ash hh (- i)) #xff)))
+
+;;; ----------------------------------------------------
 
 (defun hash-vector (seq)
   "Convert x to an unsigned-byte vector."
   (if (not (stringp seq))
       seq
     (map '(vector (unsigned-byte 8)) #'char-code seq)))
+
+;;; ----------------------------------------------------
 
 (defun digest (seq)
   "Create a SHA-1 digest from an adjustable vector containing the message."
@@ -136,17 +146,25 @@
         (setf h3 (logand (+ h3 d) #xffffffff))
         (setf h4 (logand (+ h4 e) #xffffffff))))))
 
+;;; ----------------------------------------------------
+
 (defun sha1-digest (message)
   "Return the SHA1 digest for a byte sequence."
   (digest (hash-vector message)))
+
+;;; ----------------------------------------------------
 
 (defun sha1-hex (message)
   "Return the SHA1 hex digest for a byte sequence."
   (format nil "~{~16,2,'0r~}" (sha1-digest message)))
 
+;;; ----------------------------------------------------
+
 (defun sha1-base64 (message)
   "Return the SHA1 base64-encoded digest for a byte sequence."
   (base64-encode (map 'string #'code-char (sha1-digest message))))
+
+;;; ----------------------------------------------------
 
 (defun hmac-sha1-digest (key message)
   "Return the HMAC-SHA1 digest for a byte sequence."
@@ -155,21 +173,30 @@
 
   ;; make sure the key is at least blocksize in length
   (when (< (length key) 64)
-    (setf key (replace (make-array 64 :element-type '(unsigned-byte 8) :initial-element 0)
+    (setf key (replace (make-array 64
+                                   :initial-element 0
+                                   :element-type '(unsigned-byte 8))
 
                        ;; make sure the key is a byte vector
                        (hash-vector key))))
 
   ;; determine the o-key-pad and i-key-pad
-  (let ((o-key (loop for i across key collect (logxor #x5c i)))
-        (i-key (loop for i across key collect (logxor #x36 i))))
+  (let* ((o-key (loop for i across key collect (logxor #x5c i)))
+         (i-key (loop for i across key collect (logxor #x36 i)))
+
+         ;; digest the i-key and hash of the message
+         (l-msg (concatenate 'list i-key (hash-vector message))))
 
     ;; generate the HMAC hash
-    (sha1-digest (append o-key (sha1-digest (concatenate 'list i-key (hash-vector message)))))))
+    (sha1-digest (append o-key (sha1-digest l-msg)))))
+
+;;; ----------------------------------------------------
 
 (defun hmac-sha1-hex (key message)
   "Return the HMAC-SHA1 hex digest for a byte sequence."
   (format nil "~{~16,2,'0r~}" (hmac-sha1-digest key message)))
+
+;;; ----------------------------------------------------
 
 (defun hmac-sha1-base64 (key message)
   "Return the HMAC-SHA1 base64-encoded digest for a byte sequence."
