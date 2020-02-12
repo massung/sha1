@@ -18,7 +18,7 @@
 ;;;;
 
 (defpackage :sha1
-  (:use :cl :base64)
+  (:use :cl)
   (:export
    #:sha1-digest
    #:sha1-hex
@@ -162,7 +162,7 @@
 
 (defun sha1-base64 (message)
   "Return the SHA1 base64-encoded digest for a byte sequence."
-  (base64-encode (map 'string #'code-char (sha1-digest message))))
+  (base64:string-to-base64-string (map 'string #'code-char (sha1-digest message))))
 
 ;;; ----------------------------------------------------
 
@@ -200,4 +200,4 @@
 
 (defun hmac-sha1-base64 (key message)
   "Return the HMAC-SHA1 base64-encoded digest for a byte sequence."
-  (base64-encode (map 'string #'code-char (hmac-sha1-digest key message))))
+  (base64:string-to-base64-string (map 'string #'code-char (hmac-sha1-digest key message))))

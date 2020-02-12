@@ -11,4 +11,4 @@
   :description "SHA1 Digest and HMAC for LispWorks."
   :serial t
   :components ((:file "sha1"))
-  :depends-on ("base64"))
+  :depends-on ("cl-base64"))
