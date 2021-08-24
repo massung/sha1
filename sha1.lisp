@@ -18,7 +18,7 @@
 ;;;;
 
 (defpackage :sha1
-  (:use :cl :base64)
+  (:use :cl)
   (:export
    #:sha1-digest
    #:sha1-hex
@@ -30,6 +30,11 @@
    #:hmac-sha1-base64))
 
 (in-package :sha1)
+
+;;; ----------------------------------------------------
+
+(defvar *base64-encoder* nil
+  "SHA1-BASE64 and HMAC-SHA1-BASE64 use this function if no encoder is provided.")
 
 ;;; ----------------------------------------------------
 
@@ -160,9 +165,10 @@
 
 ;;; ----------------------------------------------------
 
-(defun sha1-base64 (message)
+(defun sha1-base64 (message &optional (base64-encoder *base64-encoder*))
   "Return the SHA1 base64-encoded digest for a byte sequence."
-  (base64-encode (map 'string #'code-char (sha1-digest message))))
+  (check-type base64-encoder function)
+  (funcall base64-encoder (map 'string #'code-char (sha1-digest message))))
 
 ;;; ----------------------------------------------------
 
@@ -198,6 +204,7 @@
 
 ;;; ----------------------------------------------------
 
-(defun hmac-sha1-base64 (key message)
+(defun hmac-sha1-base64 (key message &optional (base64-encoder *base64-encoder*))
   "Return the HMAC-SHA1 base64-encoded digest for a byte sequence."
-  (base64-encode (map 'string #'code-char (hmac-sha1-digest key message))))
+  (check-type base64-encoder function)
+  (funcall base64-encoder (map 'string #'code-char (hmac-sha1-digest key message))))

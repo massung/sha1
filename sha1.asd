@@ -10,5 +10,4 @@
   :license "Apache 2.0"
   :description "SHA1 Digest and HMAC for Common Lisp."
   :serial t
-  :components ((:file "sha1"))
-  :depends-on ("base64"))
+  :components ((:file "sha1")))
