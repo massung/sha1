@@ -33,6 +33,9 @@
 
 ;;; ----------------------------------------------------
 
+(deftype function-designator ()
+  '(or function symbol))
+
 (defvar *base64-encoder* nil
   "SHA1-BASE64 and HMAC-SHA1-BASE64 use this function if no encoder is provided.")
 
@@ -167,7 +170,7 @@
 
 (defun sha1-base64 (message &optional (base64-encoder *base64-encoder*))
   "Return the SHA1 base64-encoded digest for a byte sequence."
-  (check-type base64-encoder function)
+  (check-type base64-encoder function-designator)
   (funcall base64-encoder (map 'string #'code-char (sha1-digest message))))
 
 ;;; ----------------------------------------------------
@@ -206,5 +209,5 @@
 
 (defun hmac-sha1-base64 (key message &optional (base64-encoder *base64-encoder*))
   "Return the HMAC-SHA1 base64-encoded digest for a byte sequence."
-  (check-type base64-encoder function)
+  (check-type base64-encoder function-designator)
   (funcall base64-encoder (map 'string #'code-char (hmac-sha1-digest key message))))
