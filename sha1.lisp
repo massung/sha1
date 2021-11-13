@@ -27,7 +27,10 @@
    ;; HMAC functions
    #:hmac-sha1-digest
    #:hmac-sha1-hex
-   #:hmac-sha1-base64))
+   #:hmac-sha1-base64
+
+   ;; Base 64 encoder
+   #:*base64-encoder*))
 
 (in-package :sha1)
 
